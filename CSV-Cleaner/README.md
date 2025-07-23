@@ -40,7 +40,7 @@ Uses serverless AWS components to automate CSV cleaning at scale.
 ### Workflow
  
 1. **Input S3 Bucket**  
-   User uploads a raw CSV file. The filename suffix indicates the cleaning functions (e.g., `_L`, `_H`, `_U`).
+   User uploads a raw CSV file. The filename suffix indicates the cleaning functions (e.g., `_LP`, `_H`, `_URP`).
  
 2. **SQS Queue**  
    Detects new uploads and sends event messages to Lambda.
