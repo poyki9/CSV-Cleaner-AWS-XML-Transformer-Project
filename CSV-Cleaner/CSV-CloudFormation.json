@@ -1,0 +1,181 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "CloudFormation template for CSV cleaning pipeline with S3, SQS, and Lambda.",
+  "Resources": {
+    "CSVCleanerInputBucket": {
+      "Type": "AWS::S3::Bucket",
+      "DependsOn": "CSVCleaningQueuePolicy",
+      "Properties": {
+        "BucketName": "csv-file-cleaner-input-bucket-p2",
+        "NotificationConfiguration": {
+          "QueueConfigurations": [
+            {
+              "Event": "s3:ObjectCreated:*",
+              "Queue": { "Fn::GetAtt": ["CSVCleaningQueue", "Arn"] }
+            }
+          ]
+        },
+        "Tags": [
+          { "Key": "Project", "Value": "CSV-Cleaning-Pipeline" },
+          { "Key": "Environment", "Value": "Production" }
+        ]
+      }
+    },
+    "CSVCleaningQueue": {
+      "Type": "AWS::SQS::Queue",
+      "Properties": {
+        "QueueName": "csv-cleaning-queue-p2",
+        "VisibilityTimeout": 300,
+        "MessageRetentionPeriod": 345600,
+        "Tags": [
+          { "Key": "Project", "Value": "CSV-Cleaning-Pipeline" },
+          { "Key": "Environment", "Value": "Production" }
+        ]
+      }
+    },
+    "CSVCleaningQueuePolicy": {
+      "Type": "AWS::SQS::QueuePolicy",
+      "Properties": {
+        "Queues": [{ "Ref": "CSVCleaningQueue" }],
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "s3.amazonaws.com"
+              },
+              "Action": "sqs:SendMessage",
+              "Resource": { "Fn::GetAtt": ["CSVCleaningQueue", "Arn"] }
+            }
+          ]
+        }
+      }
+    },
+    "CSVCleanedOutputBucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketName": "csv-cleaned-output-bucket-p2",
+        "Tags": [
+          { "Key": "Project", "Value": "CSV-Cleaning-Pipeline" },
+          { "Key": "Environment", "Value": "Production" }
+        ]
+      }
+    },
+    "LambdaCSVCleanerRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        ],
+        "Policies": [
+          {
+            "PolicyName": "LambdaS3SQSPermissions",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "sqs:ReceiveMessage",
+                    "sqs:DeleteMessage",
+                    "sqs:GetQueueAttributes"
+                  ],
+                  "Resource": { "Fn::GetAtt": ["CSVCleaningQueue", "Arn"] }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetObject"
+                  ],
+                  "Resource": { "Fn::Join": ["", [{ "Fn::GetAtt": ["CSVCleanerInputBucket", "Arn"] }, "/*"]]}
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:PutObject"
+                  ],
+                  "Resource": { "Fn::Join": ["", [{ "Fn::GetAtt": ["CSVCleanedOutputBucket", "Arn"] }, "/*"]]}
+                }
+              ]
+            }
+          }
+        ],
+        "Tags": [
+          { "Key": "Project", "Value": "CSV-Cleaning-Pipeline" }
+        ]
+      }
+    },
+    "LambdaCSVCleanerFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "FunctionName": "Lambda_CSV-p2",
+        "Handler": "lambda_function.lambda_handler",
+        "Runtime": "python3.12",
+        "Code": {
+          "S3Bucket": "lambda-code-bucket-p",
+          "S3Key": "lambda_deploy.zip"
+        },
+        "MemorySize": 256,
+        "Timeout": 300,
+        "Role": { "Fn::GetAtt": ["LambdaCSVCleanerRole", "Arn"] },
+        "Environment": {
+          "Variables": {
+            "OUTPUT_BUCKET_NAME": { "Ref": "CSVCleanedOutputBucket" }
+          }
+        },
+        "Tags": [
+          { "Key": "Project", "Value": "CSV-Cleaning-Pipeline" }
+        ]
+      }
+    },
+    "LambdaEventSourceMapping": {
+      "Type": "AWS::Lambda::EventSourceMapping",
+      "Properties": {
+        "EventSourceArn": { "Fn::GetAtt": ["CSVCleaningQueue", "Arn"] },
+        "FunctionName": { "Fn::GetAtt": ["LambdaCSVCleanerFunction", "Arn"] },
+        "BatchSize": 10,
+        "Enabled": true
+      }
+    },
+    "LambdaPermissionForSQS": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "FunctionName": { "Fn::GetAtt": ["LambdaCSVCleanerFunction", "Arn"] },
+        "Action": "lambda:InvokeFunction",
+        "Principal": "sqs.amazonaws.com",
+        "SourceArn": { "Fn::GetAtt": ["CSVCleaningQueue", "Arn"] }
+      }
+    }
+  },
+  "Outputs": {
+    "InputBucketName": {
+      "Description": "Name of the S3 input bucket",
+      "Value": { "Ref": "CSVCleanerInputBucket" }
+    },
+    "OutputBucketName": {
+      "Description": "Name of the S3 output bucket",
+      "Value": { "Ref": "CSVCleanedOutputBucket" }
+    },
+    "SQSQueueURL": {
+      "Description": "URL of the SQS queue",
+      "Value": { "Ref": "CSVCleaningQueue" }
+    },
+    "LambdaFunctionName": {
+      "Description": "Name of the Lambda function",
+      "Value": { "Ref": "LambdaCSVCleanerFunction" }
+    }
+  }
+}
