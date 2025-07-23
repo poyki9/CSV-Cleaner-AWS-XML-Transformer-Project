@@ -1,56 +1,98 @@
-# 🧹 CSV Cleaner – Python GUI + AWS Automation
-
+# CSV Cleaner Project
+ 
+Transforming data with intelligent automation and intuitive design.  
+Developed at **NTT DATA**, this project simplifies and accelerates the process of cleaning large-scale CSV files with both local and cloud-based automation workflows.
+ 
+---
+ 
 ## 📌 Overview
-
-CSV Cleaner is a two-phase project designed to simplify and automate the cleaning of CSV files. It provides both a **local GUI** for manual editing and a **cloud-based AWS solution** for fully automated processing, making it scalable and user-friendly for both developers and non-technical users.
-
+ 
+The **CSV Cleaner Project** offers a Python-based solution for efficient and scalable CSV file cleaning. It provides:
+ 
+- A **Tkinter-based local GUI** for quick, interactive edits.
+- A **cloud backend powered by AWS** for asynchronous batch cleaning operations.
+ 
+This hybrid approach ensures flexibility across use cases — from individual data prep to enterprise-scale automation.
+ 
 ---
-
-## 🖥️ Phase 1: Python GUI (Tkinter)
-
-A simple desktop application built using Python and Tkinter:
-
-- ✅ Upload a CSV file
-- ✅ Select cleaning functions using checkboxes:
-  - Lowercase conversion
-  - Remove punctuation
-  - Remove URLs/special characters
-  - Remove HTML tags
-  - Remove repeated words
-- ✅ Download the cleaned file locally
-
-### 💡 How It Works
-
-The user selects a CSV file and checks the transformations they want. Once submitted, the GUI processes the file and outputs a new cleaned version.
-
+ 
+## 💻 Local GUI (Tkinter)
+ 
+A lightweight desktop application for immediate CSV cleaning.
+ 
+### Key Features
+ 
+- Upload CSV files locally
+- Select cleaning operations via checkboxes:
+  - ✅ Convert to lowercase
+  - ✅ Remove HTML tags
+  - ✅ Remove URLs & special characters
+  - ✅ Remove punctuation
+  - ✅ Remove stopwords and frequent words
+- Output saved locally for quick use
+ 
 ---
-
-## ☁️ Phase 2: AWS Automation
-
-An end-to-end serverless pipeline for automated CSV cleaning:
-
-### 🔄 Workflow
-
-1. **Upload**: User uploads a CSV file to the **Input S3 Bucket**
-2. **Trigger**: S3 event triggers an **SQS Queue**, which activates a **Lambda function**
-3. **Regex Parsing**: The Lambda reads the filename (e.g., `123_LHR.csv`) to identify which functions to apply:
-   - `L` = lowercase
-   - `H` = remove HTML
-   - `U` = remove URLs/special characters
-   - `P` = remove punctuation
-   - `R` = remove repeated words
-4. **Process**: The Lambda applies the transformations
-5. **Save**: The cleaned file is uploaded to the **Output S3 Bucket**
-
-### ⚙️ Infrastructure as Code
-
-- Uses **AWS CloudFormation** to deploy:
-  - S3 buckets (input/output)
-  - SQS queue
-  - Lambda function
-- The setup is reusable and shareable across AWS accounts.
-
+ 
+## ☁️ AWS Cloud Automation
+ 
+Uses serverless AWS components to automate CSV cleaning at scale.
+ 
+### Workflow
+ 
+1. **Input S3 Bucket**  
+   User uploads a raw CSV file. The filename suffix indicates the cleaning functions (e.g., `_L`, `_H`, `_U`).
+ 
+2. **SQS Queue**  
+   Detects new uploads and sends event messages to Lambda.
+ 
+3. **Lambda Function**  
+   Executes cleaning logic based on regex suffix codes and stores the cleaned file.
+ 
+4. **Output S3 Bucket**  
+   Cleaned CSV is saved and ready for downstream consumption.
+ 
+### Cleaning Functions (via filename suffix):
+ 
+| Suffix | Function                              |
+|--------|---------------------------------------|
+| `_L`   | Make lowercase                        |
+| `_H`   | Clear HTML tags                       |
+| `_U`   | Remove URLs & special characters      |
+| `_P`   | Remove punctuation                    |
+| `_R`   | Remove stopwords and frequent words   |
+ 
 ---
+ 
+## 🛠️ Tech Stack
+ 
+- **Language**: Python 3.12, JSON
+- **GUI Framework**: Tkinter
+- **Cloud Platform**: Amazon Web Services (AWS)
+- **AWS Services**: S3, Lambda, SQS, CloudFormation
+- **Data Logic**: Regex-based parsing inside Lambda
+ 
+---
+ 
+## 🚀 Deployment with CloudFormation
+ 
+### Benefits
+ 
+1. **Automated Setup**  
+   Instantly deploys all infrastructure (S3, Lambda, IAM) with one command.
+ 
+2. **Version Control**  
+   Infrastructure as Code ensures consistent environments.
+ 
+3. **Cross-Region Availability**  
+   Easily replicable across AWS regions.
+ 
+---
+ 
+## 📦 Getting Started
+ 
+### Local GUI
+ 
+```bash
+python csv_cleaner_gui.py
 
-## 🚀 How to Use
-
+ 
