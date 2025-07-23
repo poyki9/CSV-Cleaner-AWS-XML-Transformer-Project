@@ -1,0 +1,252 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS Project to process items.xml from an input S3 bucket and output products.xml to an output S3 bucket using SQS and Lambda with XSLT transformation.
+
+Parameters:
+  InputBucketName:
+    Type: String
+    Description: Name for the S3 bucket where items.xml will be uploaded.
+    Default: your-unique-input-items-bucket-2025 # Lütfen bunu ve diğer varsayılanları benzersiz yapın!
+  OutputBucketName:
+    Type: String
+    Description: Name for the S3 bucket where products.xml will be stored.
+    Default: your-unique-output-products-bucket-2025 # Lütfen bunu ve diğer varsayılanları benzersiz yapın!
+  LambdaFunctionName:
+    Type: String
+    Description: Name for the Lambda function.
+    Default: process-items-lambda-with-xslt-2025
+  SQSQueueName:
+    Type: String
+    Description: Name for the SQS queue.
+    Default: items-processing-queue-2025
+  # Lambda katmanının ZIP dosyasının bulunduğu S3 kovası ve anahtarı
+  LambdaLayerBucketName:
+    Type: String
+    Description: S3 bucket name where the Lambda layer ZIP file (e.g., lxml_layer.zip) is stored.
+    Default: layer-bucket-p # Burası güncellendi: Arkadaşınızın kovasının adı
+  LambdaLayerKey:
+    Type: String
+    Description: S3 key (path) for the Lambda layer ZIP file (e.g., lxml_layer.zip).
+    Default: lxml-layer-d263fdeb-ecae-458a-a915-5b7a0f3c1d3c.zip # BU SATIR GÜNCELLENDİ
+    
+Resources:
+  # S3 Kovaları
+  InputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref InputBucketName
+      NotificationConfiguration:
+        QueueConfigurations:
+          - Event: 's3:ObjectCreated:*'
+            Queue: !GetAtt SQSQueue.Arn
+    DependsOn: SQSQueuePolicy # SQSQueuePolicy oluşturulduktan sonra InputBucket'ı yapılandır
+
+  OutputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref OutputBucketName
+
+  # SQS Kuyruğu
+  SQSQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref SQSQueueName
+      ReceiveMessageWaitTimeSeconds: 20
+      VisibilityTimeout: 300 # Lambda'nın timeout süresinden daha uzun olmalı
+
+  # SQS Kuyruğuna S3'ten mesaj alması için izin veren politika
+  SQSQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref SQSQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: s3.amazonaws.com
+            Action:
+              - sqs:SendMessage
+            Resource: !GetAtt SQSQueue.Arn
+            Condition:
+              ArnLike:
+                aws:SourceArn: !Join ['', ['arn:', !Ref 'AWS::Partition', ':s3:::', !Ref InputBucketName]]
+              StringEquals:
+                aws:SourceAccount: !Ref 'AWS::AccountId'
+
+  # Lambda IAM Rolü
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: LambdaS3SQSAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource:
+                  - !Join ['', ['arn:aws:s3:::', !Ref InputBucketName, '/*']]
+                  - !Join ['', ['arn:aws:s3:::', !Ref OutputBucketName, '/*']]
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt SQSQueue.Arn
+
+  # Kendi lxml Lambda Katmanınız
+  LxmlLambdaLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: !Join ['-', [!Ref LambdaFunctionName, 'lxml-layer']] # Lambda fonksiyon adınıza bağlı dinamik bir isim
+      Description: Custom lxml layer for XML processing for the Lambda function.
+      Content:
+        S3Bucket: !Ref LambdaLayerBucketName # Katman ZIP dosyanızı yüklediğiniz S3 kovası
+        S3Key: !Ref LambdaLayerKey # Katman ZIP dosyasının S3'teki adı
+      CompatibleRuntimes:
+        - python3.9 # Lambda fonksiyonunuzun çalışma zamanı
+      LicenseInfo: MIT # Veya uygun bir lisans bilgisi
+      
+  # Lambda Fonksiyonu
+  ProcessItemsLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref LambdaFunctionName
+      Handler: index.lambda_handler # Lambda kodunuzdaki fonksiyon adı
+      Runtime: python3.9
+      Code:
+        ZipFile: |
+          import os
+          import boto3
+          import lxml.etree as ET
+          import json
+
+          s3 = boto3.client('s3')
+
+          # Ortam değişkeninden hedef bucket'ı al
+          TARGET_BUCKET = os.environ.get('TARGET_BUCKET')
+
+          # XSLT içerik sabiti
+          XSLT_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
+          <xsl:stylesheet version="1.0"
+              xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+            <xsl:output method="xml" indent="yes"/>
+
+            <xsl:template match="/items">
+              <products>
+                <xsl:apply-templates select="item"/>
+              </products>
+            </xsl:template>
+
+            <xsl:template match="item">
+              <product>
+                <xsl:attribute name="id"><xsl:value-of select="number"/></xsl:attribute>
+                <name><xsl:value-of select="name"/></name>
+                <brand><xsl:value-of select="brand"/></brand>
+                <price><xsl:value-of select="price"/></price>
+                <features>
+                  <xsl:for-each select="features/feature">
+                    <feature><xsl:value-of select="."/></feature>
+                  </xsl:for-each>
+                </features>
+                <stock><xsl:value-of select="stock"/></stock>
+              </product>
+            </xsl:template>
+          </xsl:stylesheet>"""
+
+          def lambda_handler(event, context):
+              try:
+                  for record in event['Records']:
+                      # SQS veya S3 tetikleyicisini ayırt et
+                      if 'body' in record:
+                          body = json.loads(record['body'])
+                          s3_info = body['Records'][0]['s3']
+                      elif 's3' in record:
+                          s3_info = record['s3']
+                      else:
+                          raise Exception("Unsupported event structure")
+
+                      source_bucket = s3_info['bucket']['name']
+                      source_key = s3_info['object']['key']
+
+                      print(f"[📥] Received file from: s3://{source_bucket}/{source_key}")
+
+                      # S3'ten XML dosyasını al
+                      obj = s3.get_object(Bucket=source_bucket, Key=source_key)
+                      xml_content = obj['Body'].read()
+
+                      # 🔧 XSLT dönüşümünü uygula
+                      xslt_root = ET.XML(XSLT_CONTENT.encode('utf-8'))
+                      transform = ET.XSLT(xslt_root)
+                      xml_root = ET.XML(xml_content)
+                      result_tree = transform(xml_root)
+
+                      result_str = ET.tostring(result_tree, pretty_print=True, encoding='utf-8')
+
+                      # 🏷️ output key tanımla
+                      if 'items.xml' in source_key:
+                          output_key = source_key.replace('items.xml', 'products.xml')
+                      else:
+                          output_key = f'products_{os.path.basename(source_key)}'
+
+                      # 📤 Yeni XML’i hedef bucket'a yükle
+                      s3.put_object(Bucket=TARGET_BUCKET, Key=output_key, Body=result_str)
+                      print(f"[✓] Transformation successful: s3://{TARGET_BUCKET}/{output_key}")
+
+                  return {
+                      'statusCode': 200,
+                      'body': f'Transformation successful: {output_key}'
+                  }
+
+              except Exception as e:
+                  print(f"[✗] Error occurred: {str(e)}")
+                  return {
+                      'statusCode': 500,
+                      'body': f'Error: {str(e)}'
+                  }
+      Role: !GetAtt LambdaExecutionRole.Arn
+      MemorySize: 256
+      Timeout: 60
+      Environment:
+        Variables:
+          TARGET_BUCKET: !Ref OutputBucketName # Lambda kodunuzdaki TARGET_BUCKET'ı OutputBucketName ile eşliyoruz
+      Layers:
+        - !Ref LxmlLambdaLayer # Artık kendi oluşturduğunuz katmanı referans alıyoruz
+  
+  # Lambda için SQS Kaynak Eşlemesi (Event Source Mapping)
+  LambdaSQSEventSourceMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt SQSQueue.Arn
+      FunctionName: !GetAtt ProcessItemsLambda.Arn
+      BatchSize: 10
+      Enabled: true
+    DependsOn: SQSQueue # SQS Kuyruğu oluşturulduktan sonra Lambda eşlemesini ayarla
+
+Outputs:
+  InputBucketUrl:
+    Description: URL of the Input S3 Bucket
+    Value: !Join ['', ['http://', !Ref InputBucketName, '.s3.amazonaws.com']]
+  OutputBucketUrl:
+    Description: URL of the Output S3 Bucket
+    Value: !Join ['', ['http://', !Ref OutputBucketName, '.s3.amazonaws.com']]
+  LambdaFunctionName:
+    Description: Name of the Lambda Function
+    Value: !Ref LambdaFunctionName
+  SQSQueueUrl:
+    Description: URL of the SQS Queue
+    Value: !Ref SQSQueue
