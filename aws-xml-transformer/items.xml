@@ -1,0 +1,51 @@
+<items>
+  <item>
+    <number>001</number>
+    <name>Akıllı Telefon</name>
+    <brand>Samsung</brand>
+    <price>40000</price>
+    <price2>42000</price2>
+    <features>
+      <feature>128GB Hafıza</feature>
+      <feature>6.5 inç ekran</feature>
+    </features>
+    <stock>?</stock>
+  </item>
+  <item>
+    <number>002</number>
+    <name>Dizüstü Bilgisayar</name>
+    <brand>Lenovo</brand>
+    <price>30000</price>
+    <price2>31000</price2>
+    <features>
+      <feature>16GB RAM</feature>
+      <feature>512GB SSD</feature>
+      <feature>15.6 inç ekran</feature>
+    </features>
+    <stock>?</stock>
+  </item>
+  <item>
+    <number>3</number>
+    <name>iPhone 15</name>
+    <brand>Apple</brand>
+    <price>65000</price>
+    <price2>67000</price2>
+    <features>
+      <feature>OLED ekran</feature>
+      <feature>128GB hafıza</feature>
+    </features>
+    <stock>15</stock>
+  </item>
+  <item>
+    <number>4</number>
+    <name>iPhone 15</name>
+    <brand>Apple</brand>
+    <price>65000</price>
+    <price2>67000</price2>
+    <features>
+      <feature>OLED ekran</feature>
+      <feature>128GB hafıza</feature>
+    </features>
+    <stock>15</stock>
+  </item>
+</items>
