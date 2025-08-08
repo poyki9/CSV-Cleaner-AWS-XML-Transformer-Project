@@ -1,0 +1,72 @@
+<regions specific="hybrid">
+	<region country="TR" id="01">
+		<item>
+			<number>001</number>
+			<name regionId="01">Akıllı Telefon</name>
+			<country name="TR"/>
+			<brand>Samsung</brand>
+			<price>40000</price>
+			<price2>42000</price2>
+			<features>
+				<feature>128GB Hafıza</feature>
+				<feature>6.5 inç ekran</feature>
+			</features>
+			<stock>?</stock>
+		</item>
+		<item>
+			<number>002</number>
+			<country name="TR"/>
+			<name regionId="01">Dizüstü Bilgisayar</name>
+			<brand>Lenovo</brand>
+			<price>30000</price>
+			<price2>31000</price2>
+			<features>
+				<feature>16GB RAM</feature>
+				<feature>512GB SSD</feature>
+				<feature>15.6 inç ekran</feature>
+			</features>
+			<stock>?</stock>
+		</item>
+		<item>
+			<number>3</number>
+			<name regionId="01">iPhone 15</name>
+			<country name="TR"/>
+			<brand>Apple</brand>
+			<price>65000</price>
+			<price2>67000</price2>
+			<features>
+				<feature>OLED ekran</feature>
+				<feature>128GB hafıza</feature>
+			</features>
+			<stock>15</stock>
+		</item>
+		<item>
+			<number>4</number>
+			<name regionId="01">iPhone 15</name>
+			<country name="TR"/>
+			<brand>Apple</brand>
+			<price>65000</price>
+			<price2>67000</price2>
+			<features>
+				<feature>OLED ekran</feature>
+				<feature>128GB hafıza</feature>
+			</features>
+			<stock>15</stock>
+		</item>
+	</region>
+	<region country="US" id="01">
+		<item>
+			<number>001</number>
+			<name regionId="01">Smart Phone</name>
+			<country name="US"/>
+			<brand>Samsung</brand>
+			<price>400</price>
+			<price2>420</price2>
+			<features>
+				<feature>128GB Memory</feature>
+				<feature>6.5 inches screen</feature>
+			</features>
+			<stock>?</stock>
+		</item>
+	</region>
+</regions>
