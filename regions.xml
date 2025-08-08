@@ -1,3 +1,12 @@
+<!--TODO
+Remove the <regions> element
+Consider processing the only <region> where country="TR"
+Replace <region> without the attributes with <items> 
+Remove the regionId attribute from <name> element
+Remove the <country> element from each of the <item>'s
+
+New xslt output will be saved as "items.xml" in the Mule flow. -->
+
 <regions specific="hybrid">
 	<region country="TR" id="01">
 		<item>
@@ -69,4 +78,5 @@
 			<stock>?</stock>
 		</item>
 	</region>
+
 </regions>
